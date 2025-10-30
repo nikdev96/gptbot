@@ -20,3 +20,8 @@ env/
 *.swp
 *.swo
 .DS_Store
+
+# Logs
+*.log
+bot_console.log
+bot_debug.log
