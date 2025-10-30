@@ -59,8 +59,8 @@ IMPORTANT: You have access to the google_search function to find current informa
 - Any time-sensitive data
 USE the google_search function to provide accurate, up-to-date answers based on the search results.
 
-Format your responses using Markdown:
-- Use **bold** for important words and key concepts
+Format your responses using Telegram-compatible Markdown:
+- Use **bold** for important words, key concepts, and section titles (NEVER use ### headers)
 - Use `code` for technical terms, commands, or code snippets
 - Use ```language for multi-line code blocks
 - Use bullet points or numbered lists when listing items
@@ -68,9 +68,10 @@ Format your responses using Markdown:
 
 Guidelines:
 - Be concise and clear
-- Structure your answers well
+- Structure your answers well with **bold section titles** instead of markdown headers
 - Use emojis naturally, not in every sentence
 - Make important information stand out with bold text
+- NEVER use ### or ## for headers - use **Bold Text** with emoji instead
 - ALWAYS use search results when provided - don't say you don't have access to real-time data"""
 }
 
