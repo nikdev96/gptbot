@@ -26,6 +26,16 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
 GOOGLE_CX = os.getenv('GOOGLE_CX')
 
+# Whitelist разрешенных пользователей (для приватного использования)
+ALLOWED_USER_IDS_STR = os.getenv('ALLOWED_USER_IDS', '')
+ALLOWED_USER_IDS = set()
+if ALLOWED_USER_IDS_STR:
+    try:
+        ALLOWED_USER_IDS = {int(uid.strip()) for uid in ALLOWED_USER_IDS_STR.split(',') if uid.strip()}
+        print(f"Whitelist активирован для {len(ALLOWED_USER_IDS)} пользователей: {ALLOWED_USER_IDS}")
+    except ValueError:
+        print("Ошибка парсинга ALLOWED_USER_IDS. Whitelist отключен.")
+
 # Директория для хранения истории чатов
 HISTORY_DIR = Path('./chat_history')
 HISTORY_DIR.mkdir(exist_ok=True)
@@ -119,6 +129,27 @@ def get_user_model(chat_id):
 def set_user_model(chat_id, model):
     """Установить модель пользователя"""
     user_settings[chat_id] = model
+
+
+def check_user_access(message):
+    """Проверка доступа пользователя к боту"""
+    if not ALLOWED_USER_IDS:
+        # Если whitelist пустой, разрешаем всем (для обратной совместимости)
+        return True
+
+    user_id = message.from_user.id
+    if user_id not in ALLOWED_USER_IDS:
+        # Пользователь не в whitelist
+        username = message.from_user.username or message.from_user.first_name or "Неизвестный"
+        print(f"❌ Доступ запрещен для пользователя: {username} (ID: {user_id})")
+        bot.reply_to(message,
+            "⛔ *Доступ запрещен*\n\n"
+            "Этот бот предназначен только для авторизованных пользователей.\n\n"
+            f"Ваш ID: `{user_id}`\n\n"
+            "Если вы считаете, что это ошибка, обратитесь к администратору бота.",
+            parse_mode='Markdown')
+        return False
+    return True
 
 
 def google_search(query, num_results=5):
@@ -249,6 +280,9 @@ def create_model_keyboard(current_model):
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
     """Обработчик команд /start и /help"""
+    if not check_user_access(message):
+        return
+
     chat_id = message.chat.id
     current_model = get_user_model(chat_id)
     model_name = MODELS[current_model]["name"]
@@ -279,6 +313,9 @@ def send_welcome(message):
 @bot.message_handler(commands=['new'])
 def new_conversation(message):
     """Обработчик команды /new - очистка истории"""
+    if not check_user_access(message):
+        return
+
     chat_id = message.chat.id
     clear_chat_history(chat_id)
     bot.reply_to(message, "✅ История диалога очищена. Начинаем новый разговор!", parse_mode='Markdown')
@@ -287,6 +324,9 @@ def new_conversation(message):
 @bot.message_handler(commands=['menu'])
 def show_menu(message):
     """Обработчик команды /menu - показать меню"""
+    if not check_user_access(message):
+        return
+
     chat_id = message.chat.id
     current_model = get_user_model(chat_id)
     model_name = MODELS[current_model]["name"]
@@ -305,6 +345,9 @@ def show_menu(message):
 @bot.message_handler(commands=['image', 'generate'])
 def generate_image(message):
     """Обработчик команды /image - генерация изображения"""
+    if not check_user_access(message):
+        return
+
     chat_id = message.chat.id
 
     # Получаем текст после команды
@@ -357,6 +400,9 @@ def generate_image(message):
 @bot.message_handler(content_types=['photo'])
 def handle_photo(message):
     """Обработчик фотографий"""
+    if not check_user_access(message):
+        return
+
     chat_id = message.chat.id
 
     # Показываем, что бот печатает
@@ -434,6 +480,9 @@ def handle_photo(message):
 @bot.message_handler(func=lambda message: True, content_types=['text'])
 def handle_message(message):
     """Обработчик текстовых сообщений"""
+    if not check_user_access(message):
+        return
+
     chat_id = message.chat.id
     user_text = message.text
 
@@ -561,6 +610,11 @@ def handle_message(message):
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
     """Обработчик нажатий на кнопки меню"""
+    # Проверка доступа для callback queries
+    if ALLOWED_USER_IDS and call.from_user.id not in ALLOWED_USER_IDS:
+        bot.answer_callback_query(call.id, "⛔ Доступ запрещен", show_alert=True)
+        return
+
     chat_id = call.message.chat.id
     message_id = call.message.message_id
 
